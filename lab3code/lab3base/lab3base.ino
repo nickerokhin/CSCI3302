@@ -3,10 +3,10 @@
 
 
 #define M_PI 3.14159
-#define ROBOT_SPEED 0.0275  // meters/second
+#define ROBOT_SPEED 2.75  // centimeters/second
 #define CYCLE_TIME .050 // Default 50ms cycle time
-#define AXLE_DIAMETER 0.0857 // meters
-#define WHEEL_RADIUS 0.03 // meters
+#define AXLE_DIAMETER 8.57 // centimeters
+#define WHEEL_RADIUS 3.0 // centimeters
 #define CONTROLLER_FOLLOW_LINE 1
 #define CONTROLLER_GOTO_POSITION_PART2 2
 #define CONTROLLER_GOTO_POSITION_PART3 3
@@ -90,27 +90,6 @@ void readSensors(int movement) {
   line_center = sparki.lineCenter();
 }
 
-/*
-void updateOdometry() {
-  // TODO: Update pose_x, pose_y, pose_theta
-  
-  if (movement == MOVE_LEFT){
-    pose_theta = pose_theta + (-angularVelocity * 100.0);
-  }
-  else if (movement == MOVE_RIGHT){
-    pose_theta = pose_theta + (angularVelocity * 100.0);
-  }
-  else if (movement == MOVE_FORWARD){
-    pose_x += 10.0 * ROBOT_SPEED * cos(pose_theta);
-    pose_y += 10.0 * ROBOT_SPEED * sin(pose_theta);
-  }
-  
-  // Bound theta
-  if (pose_theta > M_PI) pose_theta -= 2.*M_PI;
-  if (pose_theta <= -M_PI) pose_theta += 2.*M_PI;
-}
-
-*/
 void displayOdometry() {
   sparki.print("X: ");
   sparki.print(pose_x);
@@ -172,18 +151,23 @@ void partTwoController(float desired_pose_x, float desired_pose_y, float desired
   // Turn to desired theta
 }
 
-void updateOdometry(int movement, int time) {
-  if (movement == MOVE_LEFT){
-    pose_theta = pose_theta + (-angularVelocity * time);
-    Serial.println(pose_theta);
-  }
-  else if (movement == MOVE_RIGHT){
-    pose_theta = pose_theta + (angularVelocity * time);
-  }
-  else if (movement == MOVE_FORWARD){
-    pose_x += time * (ROBOT_SPEED * 100) * cos(pose_theta);
-    pose_y += time * (ROBOT_SPEED * 100) * sin(pose_theta);
-  }
+void updateOdometry(int percent_l, int percent_r) {
+  
+  int phi_l = ((ROBOT_SPEED * percent_l) * AXLE_DIAMETER) / WHEEL_RADIUS;
+  int phi_r = ((ROBOT_SPEED * percent_r) * AXLE_DIAMETER) / WHEEL_RADIUS; 
+  
+  // Recalculate pose theta
+  int d_theta = phi_r * WHEEL_RADIUS / AXLE_DIAMETER - phi_l * WHEEL_RADIUS / AXLE_DIAMETER
+  pose_theta += d_theta;
+  
+  // Calculate X_R
+  int X_R = WHEEL_RADIUS * phi_l / 2 + WHEEL_RADIUS * phi_r / 2
+  
+  // Recalculate pose_x and pose_y
+  pose_x += X_R * cos(pose_theta);
+  pose_y += X_R * sin(pose_theta);
+  
+  // Leave for debugging
   Serial.print("Theta: ");
   Serial.println(pose_theta);
   Serial.print("X: ");
@@ -265,6 +249,8 @@ void loop() {
       
       break;      
     case CONTROLLER_GOTO_POSITION_PART3:      
+      sparki.motorRotate(MOTOR_LEFT, left_dir, 100)
+      
       //updateOdometry();
       // TODO: Implement solution using motorRotate and proportional feedback controller.
       // sparki.motorRotate function calls for reference:
