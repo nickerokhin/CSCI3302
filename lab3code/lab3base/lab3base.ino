@@ -1,11 +1,17 @@
+#include <sparki.h>
+#include <math.h>
 //#define M_PI 3.14159
-#define ROBOT_SPEED 2.75  // centimeters/second
+#define ROBOT_SPEED 0.0275  // centimeters/second
 #define CYCLE_TIME .050 // Default 50ms cycle time
 #define AXLE_DIAMETER 8.57 // centimeters
 #define WHEEL_RADIUS 3.0 // centimeters
 #define CONTROLLER_FOLLOW_LINE 1
 #define CONTROLLER_GOTO_POSITION_PART2 2
 #define CONTROLLER_GOTO_POSITION_PART3 3
+
+#define MOVE_LEFT 1
+#define MOVE_RIGHT 2
+#define MOVE_FORWARD 3
 
 #define FWD 1
 #define NONE 0
@@ -27,7 +33,7 @@ int current_state = CONTROLLER_GOTO_POSITION_PART2;
 // Odometry bookkeeping
 float orig_dist_to_goal = 0.0;
 float pose_x = 0., pose_y = 0., pose_theta = 0.;
-float dest_pose_x = 40., dest_pose_y = 15., dest_pose_theta = 1.;
+float dest_pose_x = 30., dest_pose_y = 10., dest_pose_theta = 1.;
 float d_err = 0., b_err = 0., h_err = 0.; // Distance error (m), bearing error (rad), heading error (rad)
 float phi_l = 0., phi_r = 0.; // Wheel rotation (radians)
 
@@ -67,7 +73,7 @@ void setup() {
   right_wheel_rotating = NONE;
 
   // Set test cases here!
-  set_pose_destination(0.15,0.05, to_radians(135));  // Goal_X_Meters, Goal_Y_Meters, Goal_Theta_Radians
+  set_pose_destination(30,10, to_radians(135));  // Goal_X_Meters, Goal_Y_Meters, Goal_Theta_Radians
 }
 
 // Sets target robot pose to (x,y,t) in units of meters (x,y) and radians (t)
@@ -154,8 +160,8 @@ void updateOdometry2(int movement, float time_to_move) {
     pose_theta = pose_theta + (angularVelocity * time_to_move);
   }
   else if (movement == MOVE_FORWARD){
-    pose_x += time_to_move * velocity * cos(pose_theta);
-    pose_y += time_to_move * velocity * sin(pose_theta);
+    pose_x += time_to_move * ROBOT_SPEED * cos(pose_theta);
+    pose_y += time_to_move * ROBOT_SPEED * sin(pose_theta);
   }
   Serial.print("Theta: ");
   Serial.println(pose_theta);
@@ -190,18 +196,6 @@ void updateOdometry3(int percent_l, int percent_r) {
   Serial.println(pose_y); 
 }
 
-void gains(){
-  
-  float p1 - 0.1;
-  float p2 = 0.1;
-  float p3 = 1/d_err;
-  if p3 > 1{
-    p3 = 1
-  }
-  
-  
-  
-}
 
 void partThreeController(float desired_pose_x, float desired_pose_y, float desired_theta){
   //Assume starting at 0,0
@@ -212,13 +206,12 @@ void partThreeController(float desired_pose_x, float desired_pose_y, float desir
 
   // Turn towards the point
   d_err = sqrt(pow((desired_pose_x - pose_x),2) + (pow(desired_pose_y - pose_y, 2)));
- 	b_err = bearing = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
+ 	b_err = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
   if (!startTime) {
     startTime = millis();
   }
-  updateOdometry3(left_speed_pct, righ_speed_pct);
+  updateOdometry3(left_speed_pct, right_speed_pct);
   displayOdometry();
-  gains()
         
   sparki.motorRotate(MOTOR_LEFT, left_dir, 100);
   sparki.motorRotate(MOTOR_RIGHT, right_dir, 100);
