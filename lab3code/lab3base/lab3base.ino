@@ -1,7 +1,7 @@
 #include <sparki.h>
 #include <math.h>
 //#define M_PI 3.14159
-#define ROBOT_SPEED 0.0275  // centimeters/second
+#define ROBOT_SPEED .000275  // centimeters/millisecond
 #define CYCLE_TIME .050 // Default 50ms cycle time
 #define AXLE_DIAMETER 8.57 // centimeters
 #define WHEEL_RADIUS 3.0 // centimeters
@@ -133,7 +133,7 @@ void partTwoController(float desired_pose_x, float desired_pose_y, float desired
   updateOdometry2(MOVE_RIGHT, timeToRotate);
   
   // Move to the point
-  int timeToMoveForward = (dist/100)/ROBOT_SPEED * 1000; 
+  int timeToMoveForward = (dist)/ROBOT_SPEED; 
   Serial.println(timeToMoveForward);
   sparki.moveForward();
   delay(timeToMoveForward);
@@ -199,24 +199,60 @@ void updateOdometry3(int percent_l, int percent_r) {
 
 void partThreeController(float desired_pose_x, float desired_pose_y, float desired_theta){
   //Assume starting at 0,0
-	unsigned long timing;
+  unsigned long timing;
   unsigned long startTime;
   startTime = millis();
   unsigned long currTime;
 
   // Turn towards the point
   d_err = sqrt(pow((desired_pose_x - pose_x),2) + (pow(desired_pose_y - pose_y, 2)));
- 	b_err = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
+  b_err = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
+  h_err = desired_theta - pose_theta
+  
+  p1 = 0.1;
+  p2 = 0.1;
+  p3 = 1/math.exp(d_err, 2);
+  
+  d_Theta = p2 * b_err - p3 * h_err;
+  dX = p1 * d_err;
   if (!startTime) {
     startTime = millis();
+  }
+  
+  float wheel_weight = 1. - abs(1 - (d_Theta/2 * M_PI));
+  if(d_err < 1){ // sparki close to destination -> rotate based on heading
+  	if((d_Theta < 0) or (d_Theta > M_PI)){ // sparki needs to turn left
+      left_speed_pct = .5;
+      right_speed_pct = .5;
+      l_dir = DIR_CW;
+      r_dir = DIR_CW;
+    }
+    else{ // sparki needs to turn right
+      left_speed_pct = .5;
+      right_speed_pct = .5;
+      l_dir = DIR_CCW;
+      r_dir = DIR_CCW;
+    }
+  }
+  else{ // sparki far from desination -> rotate based on bearing
+    l_dir = DIR_CW;
+    r_dir = DIR_CCW;
+		if((d_Theta < 0) or (d_Theta > M_PI)){ // sparki needs to turn left
+      left_speed_pct = wheel_weight;
+      right_speed_pct = 1.;
+    }
+    else{ // sparki needs to turn right
+      left_speed_pct = 1.;
+      right_speed_pct = wheel_weight;
+    }
   }
   updateOdometry3(left_speed_pct, right_speed_pct);
   displayOdometry();
         
-  sparki.motorRotate(MOTOR_LEFT, left_dir, 100);
-  sparki.motorRotate(MOTOR_RIGHT, right_dir, 100);
+  sparki.motorRotate(MOTOR_LEFT, l_dir, 100 * left_speed_pct);
+  sparki.motorRotate(MOTOR_RIGHT, r_dir, 100 * right_speed_pct);
   currTime = millis();
-	timing = currTime - startTime;
+  timing = currTime - startTime;
   delay(100 - timing);
   
   // Drive the distance to the point
