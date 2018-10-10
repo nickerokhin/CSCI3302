@@ -2,7 +2,7 @@
 #include <math.h>
 
 
-#define M_PI 3.14159
+//#define M_PI 3.14159
 #define ROBOT_SPEED 2.75  // centimeters/second
 #define CYCLE_TIME .050 // Default 50ms cycle time
 #define AXLE_DIAMETER 8.57 // centimeters
@@ -157,11 +157,11 @@ void updateOdometry(int percent_l, int percent_r) {
   int phi_r = ((ROBOT_SPEED * percent_r) * AXLE_DIAMETER) / WHEEL_RADIUS; 
   
   // Recalculate pose theta
-  int d_theta = phi_r * WHEEL_RADIUS / AXLE_DIAMETER - phi_l * WHEEL_RADIUS / AXLE_DIAMETER
+  int d_theta = (phi_r * WHEEL_RADIUS / AXLE_DIAMETER) - (phi_l * WHEEL_RADIUS / AXLE_DIAMETER);
   pose_theta += d_theta;
   
   // Calculate X_R
-  int X_R = WHEEL_RADIUS * phi_l / 2 + WHEEL_RADIUS * phi_r / 2
+  int X_R = (WHEEL_RADIUS * phi_l / 2) + (WHEEL_RADIUS * phi_r / 2);
   
   // Recalculate pose_x and pose_y
   pose_x += X_R * cos(pose_theta);
@@ -185,16 +185,16 @@ void partThreeController(float desired_pose_x, float desired_pose_y, float desir
   while (!complete){
     float dist = sqrt(pow((desired_pose_x - pose_x),2) + (pow(desired_pose_y - pose_y, 2)));
     float bearing = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
-    if !(bearing <= 0.1 && bearing >= -0.1){
+    if (!(bearing <= 0.1 && bearing >= -0.1)){
       sparki.moveRight();
       moved = MOVE_RIGHT;
       continue;
     }
-    if !(dist < 1){
+    if (!(dist < 1)){
       sparki.moveForward();
       moved = MOVE_FORWARD;
     }
-    updateOdometry()
+    updateOdometry();
 
   }
   
@@ -249,7 +249,7 @@ void loop() {
       
       break;      
     case CONTROLLER_GOTO_POSITION_PART3:      
-      sparki.motorRotate(MOTOR_LEFT, left_dir, 100)
+      sparki.motorRotate(MOTOR_LEFT, left_dir, 100);
       
       //updateOdometry();
       // TODO: Implement solution using motorRotate and proportional feedback controller.
