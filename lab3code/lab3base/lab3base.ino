@@ -1,7 +1,3 @@
-#include <sparki.h>
-#include <math.h>
-
-
 //#define M_PI 3.14159
 #define ROBOT_SPEED 2.75  // centimeters/second
 #define CYCLE_TIME .050 // Default 50ms cycle time
@@ -19,7 +15,6 @@
 #define MOVE_RIGHT 2
 #define MOVE_FORWARD 3
 
-
 // Line following configuration variables
 const int threshold = 700;
 int line_left = 1000;
@@ -36,7 +31,6 @@ float dest_pose_x = 40., dest_pose_y = 15., dest_pose_theta = 1.;
 float d_err = 0., b_err = 0., h_err = 0.; // Distance error (m), bearing error (rad), heading error (rad)
 float phi_l = 0., phi_r = 0.; // Wheel rotation (radians)
 
-
 // Wheel rotation vars
 float left_speed_pct = 0.;
 float right_speed_pct = 0.;
@@ -45,10 +39,14 @@ int right_dir = DIR_CW;
 int left_wheel_rotating = NONE;
 int right_wheel_rotating = NONE;
 
+//
+bool complete = false;
+
 // X and Theta Updates (global for debug output purposes)
 // and their respective feedback controller gains
 const float distance_gain = 1.;
 const float theta_gain = 1.;
+const float heading_gain = 1.;
 float dX  = 0., dTheta = 0.;
 
 float to_radians(double deg) {
@@ -59,9 +57,7 @@ float to_degrees(double rad) {
   return  rad * 180 / 3.1415;
 }
 
-
 float angularVelocity = (2 * M_PI) / 9761.0;
-
 
 void setup() {
   pose_x = 0.;
@@ -128,7 +124,7 @@ void partTwoController(float desired_pose_x, float desired_pose_y, float desired
   sparki.moveRight();
   delay(timeToRotate);
   sparki.moveStop();
-  updateOdometry(MOVE_RIGHT, timeToRotate);
+  updateOdometry2(MOVE_RIGHT, timeToRotate);
   
   // Move to the point
   int timeToMoveForward = (dist/100)/ROBOT_SPEED * 1000; 
@@ -136,7 +132,7 @@ void partTwoController(float desired_pose_x, float desired_pose_y, float desired
   sparki.moveForward();
   delay(timeToMoveForward);
   sparki.moveStop();
-  updateOdometry(MOVE_FORWARD, timeToMoveForward);
+  updateOdometry2(MOVE_FORWARD, timeToMoveForward);
   
   // Rotate towards the heading
   timeToRotate = (int) (heading/angularVelocity);
@@ -145,13 +141,31 @@ void partTwoController(float desired_pose_x, float desired_pose_y, float desired
   Serial.print(timeToRotate);
   delay(timeToRotate);
   sparki.moveStop();
-  updateOdometry(MOVE_RIGHT, timeToRotate);
-  
-  // Drive the distance to the point
-  // Turn to desired theta
+  updateOdometry2(MOVE_RIGHT, timeToRotate);
+
 }
 
-void updateOdometry(int percent_l, int percent_r) {
+void updateOdometry2(int movement, float time_to_move) {
+  if (movement == MOVE_LEFT){
+    pose_theta = pose_theta + (-angularVelocity * time_to_move);
+    Serial.println(pose_theta);
+  }
+  else if (movement == MOVE_RIGHT){
+    pose_theta = pose_theta + (angularVelocity * time_to_move);
+  }
+  else if (movement == MOVE_FORWARD){
+    pose_x += time_to_move * velocity * cos(pose_theta);
+    pose_y += time_to_move * velocity * sin(pose_theta);
+  }
+  Serial.print("Theta: ");
+  Serial.println(pose_theta);
+  Serial.print("X: ");
+  Serial.println(pose_x);
+  Serial.print("Y: ");
+  Serial.println(pose_y);
+}
+
+void updateOdometry3(int percent_l, int percent_r) {
   
   int phi_l = ((ROBOT_SPEED * percent_l) * AXLE_DIAMETER) / WHEEL_RADIUS;
   int phi_r = ((ROBOT_SPEED * percent_r) * AXLE_DIAMETER) / WHEEL_RADIUS; 
@@ -173,30 +187,44 @@ void updateOdometry(int percent_l, int percent_r) {
   Serial.print("X: ");
   Serial.println(pose_x);
   Serial.print("Y: ");
-  Serial.println(pose_y);
+  Serial.println(pose_y); 
+}
+
+void gains(){
+  
+  float p1 - 0.1;
+  float p2 = 0.1;
+  float p3 = 1/d_err;
+  if p3 > 1{
+    p3 = 1
+  }
+  
+  
   
 }
 
 void partThreeController(float desired_pose_x, float desired_pose_y, float desired_theta){
   //Assume starting at 0,0
+	unsigned long timing;
+  unsigned long startTime;
+  startTime = millis();
+  unsigned long currTime;
 
-  bool complete = false;
   // Turn towards the point
-  while (!complete){
-    float dist = sqrt(pow((desired_pose_x - pose_x),2) + (pow(desired_pose_y - pose_y, 2)));
-    float bearing = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
-    if (!(bearing <= 0.1 && bearing >= -0.1)){
-      sparki.moveRight();
-      moved = MOVE_RIGHT;
-      continue;
-    }
-    if (!(dist < 1)){
-      sparki.moveForward();
-      moved = MOVE_FORWARD;
-    }
-    updateOdometry();
-
+  d_err = sqrt(pow((desired_pose_x - pose_x),2) + (pow(desired_pose_y - pose_y, 2)));
+ 	b_err = bearing = atan2((desired_pose_y - pose_y),(desired_pose_x - pose_x)) - pose_theta;
+  if (!startTime) {
+    startTime = millis();
   }
+  updateOdometry3(left_speed_pct, righ_speed_pct);
+  displayOdometry();
+  gains()
+        
+  sparki.motorRotate(MOTOR_LEFT, left_dir, 100);
+  sparki.motorRotate(MOTOR_RIGHT, right_dir, 100);
+  currTime = millis();
+	timing = currTime - startTime;
+  delay(100 - timing);
   
   // Drive the distance to the point
   
@@ -244,12 +272,11 @@ void loop() {
       // TODO: Implement solution using moveLeft, moveForward, moveRight functions
       // This case should arrest control of the program's control flow (taking as long as it needs to, ignoring the 100ms loop time)
       // and move the robot to its final destination
-      
-
-      
+        
       break;      
-    case CONTROLLER_GOTO_POSITION_PART3:      
-      sparki.motorRotate(MOTOR_LEFT, left_dir, 100);
+    case CONTROLLER_GOTO_POSITION_PART3:
+      
+      //partThreeController(dest_pose_x, dest_pose_y, dest_pose_theta);
       
       //updateOdometry();
       // TODO: Implement solution using motorRotate and proportional feedback controller.
