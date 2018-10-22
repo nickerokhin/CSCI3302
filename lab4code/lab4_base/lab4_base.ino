@@ -38,7 +38,7 @@ float pose_x = 0., pose_y = 0., pose_theta = 0., pose_servo = 0.;
 int left_wheel_rotating = 0, right_wheel_rotating = 0;
 
 // TODO: Define world_map multi-dimensional array
-bool world_map[42][60];
+short world_map[4][6];
 
 // TODO: Figure out how many meters of space are in each grid cell
 const float CELL_RESOLUTION_X = 0;  // Line following map is ~60cm x ~42cm
@@ -50,6 +50,7 @@ float obj_y;
 float *object_x = &obj_x;
 float *object_y = &obj_y;
 
+bool objectFound = false;
 
 void setup() {
   pose_x = START_LINE_X;
@@ -58,6 +59,12 @@ void setup() {
   left_wheel_rotating = NONE;
   right_wheel_rotating = NONE;
   pose_servo = to_radians(SERVO_POS_DEG);
+  
+  for (int i = 0; i < 6; i++) {
+    for (int j = 0; j < 4; j++) {
+      world_map[j][i] = 0;
+    }
+  }
 
   sparki.servo(-to_degrees(pose_servo)); // Servo axis points down instead of up, so we need to negate it to be consistent with the robot's rotation axis
 
@@ -80,35 +87,52 @@ float to_degrees(float rad) {
 int checkForObject(){
   int ping_cm = sparki.ping();
   float cm = ((float) ping_cm)/100.;
-  Serial.print("m: ");
-  Serial.println(cm);
+  //Serial.print("m: ");
+  //Serial.println(cm);
 
     transform_us_to_robot_coords(cm, pose_servo, object_x, object_y);
     float temp_x = *object_x;
     float temp_y = *object_y;
-
-    Serial.print("temp_x: ");
-    Serial.println(temp_x);
-    Serial.print("temp_y: ");
-    Serial.println(temp_y);
-
+  
+    //Serial.print("temp_x: ");
+    //Serial.println(temp_x);
+    //Serial.print("temp_y: ");
+    //Serial.println(temp_y);
 
     transform_robot_to_world_coords(temp_x, temp_y, object_x, object_y);
 
+
+    if (*object_x < 0.60 && *object_y < 0.42 && *object_x > 0 && *object_y > 0){
     Serial.print("\nObject x: ");
     Serial.print(*object_x);
     Serial.print("\nObject y: ");
-    Serial.print(*object_y);
-
-
+    Serial.println(*object_y);
+    int obj_y_idx = (int) (*object_y * 100)/10.5;
+    int obj_x_idx = (int) (*object_x * 100)/10;
+  
+    Serial.print("x_idx: ");
+    Serial.print(obj_x_idx);
+    Serial.print("y_idx: ");
+    Serial.print(obj_y_idx);
+    
+    //obj_y_idx -= 1;
+    //obj_x_idx -= 1;
+    //if (obj_y_idx > 0 || obj_y_idx > 0){
+      
+    
+    world_map[obj_y_idx][obj_x_idx] += 1;
+    //}
+    }
+    //Serial.print("Map: \n");
+    //Serial.print(world_map);
 }
 
 // Ultrasonic Sensor Readings -> Robot coordinates
 void transform_us_to_robot_coords(float dist, float theta, float *rx, float *ry) {
   *rx = dist * cos(theta);
   *ry = dist * sin(theta);
-  Serial.println(*rx);
-  Serial.println(*ry);
+  //Serial.println(*rx);
+  //Serial.println(*ry);
 }
 
 // Robot coordinates -> World frame coordinates
@@ -219,8 +243,7 @@ void displayMap() {
   const int PIXELS_PER_Y_CELL = 0; 
   int cur_cell_x=-1, cur_cell_y=-1;
   //Loop for grid rows
-  int y = 8;
-  int x = 10;
+
   float new_coords_x = (pose_x * 100) * (128/60);
   float new_coords_y = 64. - (pose_y * 100. * (64./42.));
   sparki.clearLCD();
@@ -231,6 +254,8 @@ void displayMap() {
   sparki.println(new_coords_y);
   sparki.updateLCD();
   */
+  
+  /*
   while (y < 64){
     while (x < 128){
 
@@ -242,11 +267,31 @@ void displayMap() {
       sparki.drawCircle(x, y, 8);
       }
 
+      
+    }
+    
+  }
+  */
+  int y = 8;
+  int x = 10;
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 6; j++) {
+      
+      if (world_map[i][j] >= 7){
+        
+        sparki.drawCircleFilled(x, y, 8);
+        //matrix_2_map_x = (4/14) * i;
+        //matrix_2_map_y = (6/20) * j;
+      }
+      else{
+        sparki.drawCircle(x,y,8);
+      }
       x+=21;
     }
     x = 10;
     y += 16;
   }
+
   /*
   for(y = 10; y < 64; y += 15){
     for(int x = 10; x < 128; x += 20){
@@ -334,9 +379,41 @@ void loop() {
   sparki.updateLCD();
   end_time = millis();
   delay_time = end_time - begin_time;
+  
   if (delay_time < 1000*MIN_CYCLE_TIME)
-    delay(1000*MIN_CYCLE_TIME - delay_time); // make sure each loop takes at least MIN_CYCLE_TIME ms
+    delay(10000*MIN_CYCLE_TIME - delay_time); // make sure each loop takes at least MIN_CYCLE_TIME ms
   else
     delay(10);
+    
+    //delay(3000);
 }
 
+
+
+
+
+/*
+ * Part 3.2 Functions
+ */
+int cell_to_int(int i, int j) {
+  // j will never be greater than 60
+  return i * 60 + j;
+}
+
+struct Point {
+    int i;
+    int j;
+};
+
+struct Point int_to_cell(int cell) {
+  int j = cell % 60;
+  int i = (cell-j)/60;
+  Point p = {i,j};
+  return p;
+}
+
+int dist(int start, int dest) {
+  struct Point start_p = int_to_cell(start);
+  struct Point dest_p = int_to_cell(dest);
+  return abs(start_p.i - dest_p.i) + abs(start_p.j - dest_p.j);
+}
